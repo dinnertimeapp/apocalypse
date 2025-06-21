@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Panel – Dinner Table</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Firebase Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWNEUrrWYTdAZIL7e0bW75y5c-k8jxDlo",
+      authDomain: "dinner-table-app.firebaseapp.com",
+      projectId: "dinner-table-app",
+      storageBucket: "dinner-table-app.appspot.com",
+      messagingSenderId: "758580572102",
+      appId: "1:758580572102:web:51eb2626540c2c29b2ccc7"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <h1>Admin Panel: Guest List Management</h1>
+
+  <!-- Login -->
+  <div id="login-screen">
+    <input type="password" id="admin-password" placeholder="apocalypse" />
+    <button onclick="checkPassword()">Login</button>
+  </div>
+
+  <!-- Admin Content -->
+  <div id="admin-content" style="display: none;">
+    <div id="description-editor">
+      <h2>Edit Weekly Description</h2>
+      <textarea id="description-input" rows="3" cols="50"></textarea>
+      <button onclick="saveDescription()">Save Description</button>
+    </div>
+
+    <h2>Guest List Per Day</h2>
+    <div id="admin-guest-list"></div>
+  </div>
+
+  <!-- JS Logic -->
+  <script>
+    const correctPassword = "apocalypse";
+
+    function checkPassword() {
+      const input = document.getElementById("admin-password").value;
+      if (input === correctPassword) {
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("admin-content").style.display = "block";
+        loadAdminMenu();
+      } else {
+        alert("Incorrect password.");
+      }
+    }
+
+    async function loadAdminMenu() {
+      const ref = db.doc("weeklymenu/current");
+      const snap = await ref.get();
+      if (!snap.exists) return;
+
+      const data = snap.data();
+      const descriptionInput = document.getElementById("description-input");
+      const adminDiv = document.getElementById("admin-guest-list");
+      descriptionInput.value = data.description || "";
+      adminDiv.innerHTML = "";
+
+      const dinners = data.dinners || {};
+      const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+      for (const day of daysOfWeek) {
+        const info = dinners[day];
+        if (!info) continue;
+        const guests = info.guests || [];
+
+        const guestHTML = guests.map(name => `
+          <li>${name} <button onclick="removeGuest('${day}', '${name}')">❌</button></li>
+        `).join("");
+
+        const block = document.createElement("div");
+        block.className = "day-block";
+        block.innerHTML = `
+          <h2>${day}</h2>
+          <p><strong>Dish:</strong> ${info.menu || "No dinner"}</p>
+          <p><strong>Guests (${guests.length}/${info.cap || 0}):</strong></p>
+          <ul>${guestHTML}</ul>
+          <input type="text" id="new-${day}" placeholder="Add guest name" />
+          <button onclick="addGuest('${day}')">+ Add Guest</button>
+        `;
+        adminDiv.appendChild(block);
+      }
+    }
+
+    async function saveDescription() {
+      const input = document.getElementById("description-input").value.trim();
+      const ref = db.doc("weeklymenu/current");
+      await ref.update({ description: input });
+      alert("Description updated!");
+    }
+
+    window.addGuest = async function(day) {
+      const input = document.getElementById(`new-${day}`);
+      const name = input.value.trim();
+      if (!name) return;
+
+      const ref = db.doc("weeklymenu/current");
+      await ref.update({
+        [`dinners.${day}.guests`]: firebase.firestore.FieldValue.arrayUnion(name)
+      });
+      loadAdminMenu();
+    };
+
+    window.removeGuest = async function(day, name) {
+      const ref = db.doc("weeklymenu/current");
+      await ref.update({
+        [`dinners.${day}.guests`]: firebase.firestore.FieldValue.arrayRemove(name)
+      });
+      loadAdminMenu();
+    };
+    block.innerHTML = `
+  <h2>${day}</h2>
+  <p><strong>Dish:</strong></p>
+  <input type="text" id="dish-${day}" value="${info.dish || ''}" />
+  <button onclick="saveDish('${day}')">Save Dish</button>
+
+  <p><strong>Guests (${guests.length}/${info.cap || 0}):</strong></p>
+  <ul>${guestHTML}</ul>
+  <input type="text" id="new-${day}" placeholder="Add guest name" />
+  <button onclick="addGuest('${day}')">+ Add Guest</button>
+`;
+
+  </script>
+</body>
+</html>
